@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+       http://camel.apache.org/schema/spring 
+       http://camel.apache.org/schema/spring/camel-spring.xsd
+    ">
+
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+	    <property name="locations">
+		    <value>file:${APP_ENV}</value>
+	    </property>
+	</bean>
+	
+	<bean id="camelProcessor"
+		class="cl.soybruno.camel.bean.CamelProcessor" />
+
+	<bean id="dataSource"
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<property name="driverClassName"
+			value="oracle.jdbc.driver.OracleDriver" />
+		<property name="url"
+			value="jdbc:oracle:thin:@${database.wappl.host}:${database.wappl.port}/${database.wappl.databaseName}" />
+		<property name="username" value="${database.wappl.user}" />
+		<property name="password" value="${database.wappl.password}" />
+	</bean>
+
+	<camelContext
+		xmlns="http://camel.apache.org/schema/spring">
+		
+		<propertyPlaceholder id="placeholder"
+			location="classpath:sql.properties" />
+
+		<route streamCache="true">
+			<from uri="timer:MyTimmer?period=30000" />
+			<to uri="sql:{{sql.test}}?dataSource=dataSource" />
+			
+			<log message="Body raw: ${body}" />
+			<log message="Body pick one from camel: ${body[0]['data']}" />
+			
+			<loop>
+				<simple>${body.size}</simple>
+				<log message="CamelLoop [${property.CamelLoopIndex}]: ${body[${property.CamelLoopIndex}]['data']}" />
+			</loop>
+			
+			<process ref="camelProcessor" />
+			
+		</route>
+
+		<route streamCache="true">
+			<from
+				uri="restlet:http://${service.rest.host}:{service.rest.port}{service.rest.resource}?restletMethod=post" />
+			<log message="${body}" />
+		</route>
+
+	</camelContext>
+</beans>
